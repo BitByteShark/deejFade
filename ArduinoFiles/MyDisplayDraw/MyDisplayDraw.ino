@@ -18,6 +18,7 @@ void loop()
 {
     display.fill(0x00);
     display.drawBitmap8(0, 0, 128, 128, Fox);
+    Serial.println("this is my message");
     lcd_delay(3000);
     
     display.getInterface().setRotation((++rotation) & 0x03);
