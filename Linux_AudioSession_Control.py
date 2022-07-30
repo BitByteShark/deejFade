@@ -77,12 +77,11 @@ class serial_control_thread(threading.Thread):
             else:
                 logging.info("await Connection...")
             time.sleep(1)
-        #logging.info('serial_handler_thread_exited')
     def join(self, timeout=None):
         #by example for stopEvent:https://www.oreilly.com/library/view/python-cookbook/0596001673/ch06s03.html
         self._stopevent.set()
         threading.Thread.join(self, timeout)
-        logging.info('audio_handler_thread_exited')
+        logging.info('serial_handler_thread_exited')
 
 class pulse_audio_listener_thread(threading.Thread):
     def __init__(self, name='pulse_audio_listener_thread'):
@@ -91,17 +90,25 @@ class pulse_audio_listener_thread(threading.Thread):
         self.pulse_audio_listener.event_mask_set('all')
         self.pulse_audio_listener.event_callback_set(print)
         threading.Thread.__init__(self, name=name)
-        
+    
     def run(self):
         self.pulse_audio_listener.event_listen()#timeout=10
         #mute
         #unmute
         #new Soundlevel of sink
-            
+    
     def join(self, timeout=None):
-        #by example for stopEvent:https://www.oreilly.com/library/view/python-cookbook/0596001673/ch06s03.html
-        pulsectl.PulseLoopStop()#self._stopevent.set()
-        #threading.Thread.join(self, timeout)
+        self.pulse_audio_listener.event_listen_stop()
+        while self.pulse_audio_listener._loop_running:
+            #wait for Listening to Stop, otherwise already disconnectd while event_listen is still polling
+            time.sleep(0.05)
+            logging.debug('on stop waiting for pulse event listener loop to stop')
+        #self.pulse_audio_listener._loop_running #check if loop is running
+        self.pulse_audio_listener.disconnect()
+        #self.pulse_audio_listener.connected #check if listener is connected
+        self.pulse_audio_listener.close()
+        pulsectl.PulseLoopStop()#dont know if necessary or whats the benefit
+        threading.Thread.join(self, timeout)
         logging.info('pulse_audio_listener_thread_exited')
 
 def identify_serialdevice_connection_port(deviceSearial_PID, deviceSearial_VID):
@@ -141,11 +148,10 @@ def main():
         audio_event_listener.start()
         
         keystroke_listener.join()#used as infinte wait/sleep
-        #time.sleep(20)
     except KeyboardInterrupt:
-        logging.info('Client got interrupted.')
+        logging.info('Main DeejFade python client got interrupted.')
     except Exception as error:
-        logging.critical(f"crashed due to error:\n{str(error)}")
+        logging.critical(f"Main DeejFade python client crashed due to error:\n{str(error)}")
     finally:
         serial_listener.join()
         audio_event_listener.join()
